@@ -1,2 +1,2 @@
-# Chappie-Agent2Actor2Action-A3
-Minha arquitetura específica apenas para o meu PreCog Stateful Agents
+# ChappiefulAgent - Stateful Agents
+Minha arquitetura específica apenas para os meus Stateful Agents
