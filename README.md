@@ -575,3 +575,42 @@ O Zig oferece controle sobre memória, concorrência e representação binária 
 
 A prioridade de implementação deve ser construir primeiro o caminho correto e recuperável de um único evento. Depois de provar as garantias de persistência, deduplicação e recuperação, o runtime poderá acrescentar escalonamento elástico, replicação paralela e otimizações de throughput sem comprometer a integridade do estado.
 
+---
+
+# Parte III — Agent, Actor, Action e o 2flow interno
+
+A definição conceitual canônica de **Agent, Actor, Action e 2flow interno** está no [AllasCode-Blueprint — Agent, Actor, Action and Internal 2flow](https://github.com/suissa/AllasCode-Blueprint/blob/main/Blueprint/architecture/agent-actor-action-2flow.md). Esta seção explica como os conceitos se aplicam ao runtime A3.
+
+## 9. O que é Agent, Actor e Action
+
+**Agent** é a fronteira semântica de responsabilidade: possui um objetivo, recebe Intents/eventos, seleciona Behaviors e coordena o resultado esperado.
+
+**Actor** é a fronteira operacional de estado e concorrência: possui o estado mutável atribuído a ele, recebe mensagens por uma Mailbox e as processa segundo uma política explícita de ordenação. Pode ser um objeto leve do runtime Zig, sem ser um processo do sistema operacional ou um LLM. Um Agent pode ser implementado por um Actor ou coordenar vários Actors.
+
+**Action** é uma operação executável delimitada, com contrato de entrada/saída, pré-condições, efeitos, idempotência e semântica de falhas. Actions não devem contornar o Actor/Manager que possui o recurso protegido.
+
+Logo, `Agent`, `Actor`, `Action`, `thread` e `process` não são sinônimos: representam responsabilidade, propriedade de estado/concorrência, operação, thread e processo, respectivamente.
+
+## 10. O 2flow interno do Agent
+
+O **2flow interno** é a definição declarativa e versionada da trajetória de execução de um Behavior. Ele conecta Actions, dependências, condições, ramificações e caminhos de falha/recuperação. Define quais transições são permitidas e quais evidências são necessárias para aceitar o resultado.
+
+```text
+Intent
+  -> Agent seleciona um Behavior
+  -> 2flow define a trajetória
+  -> Actions executam operações delimitadas
+  -> Actor controla estado, mailbox e concorrência
+  -> Events + Evidence registram o que ocorreu
+  -> Outcome é aceito quando as pós-condições são satisfeitas
+```
+
+O 2flow não é apenas uma sequência de chamadas nem um canal de mensagens. O runtime executa o fluxo; as Actions realizam o trabalho; os Events registram ocorrências; e as Evidence sustentam a aceitação do resultado. A sintaxe formal dos arquivos `.2flow` pertence ao [repositório 2flow](https://github.com/suissa/2flow).
+
+## 11. Relação com Sentinel, Mailbox e ManagerAgent
+
+Neste projeto, o Sentinel é a fronteira de supervisão do Actor: valida mensagens, estabelece a ordem, registra a aceitação durável, coordena o despacho e acompanha ACKs. A Mailbox/WAL conserva trabalho aceito através de reinicializações. O broker em memória serve para notificar e despachar consumidores locais, mas não substitui a fonte de verdade durável.
+
+O ManagerAgent executa mutações no backend sob sua responsabilidade. ACK de persistência na Mailbox, ACK de commit local e ACK de replicação remota são garantias diferentes. A recuperação reconstrói o trabalho pendente a partir do log durável, não de mensagens que existiam apenas na memória.
+
+**O 2flow determina qual trajetória é válida; o runtime A3 determina como executá-la com isolamento de estado, ordenação, persistência, replicação e recuperação.**
